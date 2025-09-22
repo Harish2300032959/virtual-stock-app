@@ -43,13 +43,10 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      console.log("[v0] Attempting registration with:", { email, name })
       await register(email, password, name)
-      console.log("[v0] Registration successful, redirecting to dashboard")
       router.push("/dashboard")
     } catch (err: any) {
-      console.log("[v0] Registration error:", err.message)
-      setError(err.message || "Registration failed. Please try again.")
+      setError(err.response?.data?.message || "Registration failed. Please try again.")
     } finally {
       setLoading(false)
     }

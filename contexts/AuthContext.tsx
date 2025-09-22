@@ -3,6 +3,7 @@
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
 import type { User, AuthContextType } from "@/types"
+import api from "@/lib/axios"
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -21,93 +22,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const storedToken = localStorage.getItem("auth_token")
-    const storedUser = localStorage.getItem("auth_user")
-    if (storedToken && storedUser) {
+    if (storedToken) {
       setToken(storedToken)
-      setUser(JSON.parse(storedUser))
+      // Verify token and get user data
+      fetchUser(storedToken)
+    } else {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
+
+  const fetchUser = async (authToken: string) => {
+    try {
+      const response = await api.get("/api/auth/me", {
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+      setUser(response.data.user)
+    } catch (error) {
+      console.error("Failed to fetch user:", error)
+      localStorage.removeItem("auth_token")
+      setToken(null)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const login = async (email: string, password: string) => {
     try {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await api.post("/api/auth/login", { email, password })
+      const { token: authToken, user: userData } = response.data
 
-      // Check if user exists in localStorage (mock database)
-      const existingUsers = JSON.parse(localStorage.getItem("mock_users") || "[]")
-      const user = existingUsers.find((u: any) => u.email === email && u.password === password)
-
-      if (!user) {
-        throw new Error("Invalid email or password")
-      }
-
-      const mockToken = `mock_token_${Date.now()}`
-      const userData = {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        balance: user.balance || 100000,
-        createdAt: user.createdAt,
-      }
-
-      localStorage.setItem("auth_token", mockToken)
-      localStorage.setItem("auth_user", JSON.stringify(userData))
-      setToken(mockToken)
+      localStorage.setItem("auth_token", authToken)
+      setToken(authToken)
       setUser(userData)
-    } catch (error: any) {
-      throw new Error(error.message || "Login failed")
+    } catch (error) {
+      throw error
     }
   }
 
   const register = async (email: string, password: string, name: string) => {
     try {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await api.post("/api/auth/register", { email, password, name })
+      const { token: authToken, user: userData } = response.data
 
-      // Check if user already exists
-      const existingUsers = JSON.parse(localStorage.getItem("mock_users") || "[]")
-      const userExists = existingUsers.find((u: any) => u.email === email)
-
-      if (userExists) {
-        throw new Error("User with this email already exists")
-      }
-
-      // Create new user
-      const newUser = {
-        id: Date.now().toString(),
-        name,
-        email,
-        password, // In real app, this would be hashed
-        balance: 100000, // Starting virtual balance
-        createdAt: new Date().toISOString(),
-      }
-
-      // Save to mock database
-      existingUsers.push(newUser)
-      localStorage.setItem("mock_users", JSON.stringify(existingUsers))
-
-      const mockToken = `mock_token_${Date.now()}`
-      const userData = {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        balance: newUser.balance,
-        createdAt: newUser.createdAt,
-      }
-
-      localStorage.setItem("auth_token", mockToken)
-      localStorage.setItem("auth_user", JSON.stringify(userData))
-      setToken(mockToken)
+      localStorage.setItem("auth_token", authToken)
+      setToken(authToken)
       setUser(userData)
-    } catch (error: any) {
-      throw new Error(error.message || "Registration failed")
+    } catch (error) {
+      throw error
     }
   }
 
   const logout = () => {
     localStorage.removeItem("auth_token")
-    localStorage.removeItem("auth_user")
     setToken(null)
     setUser(null)
   }
